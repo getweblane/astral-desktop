@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, shell } from "electron";
+import { app, BrowserWindow, dialog, session, shell } from "electron";
 import { join } from "path";
 import { autoUpdater } from "electron-updater";
 
@@ -103,17 +103,67 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+// ---------------------------------------------------------------------------
+// Updates — opt-in, never forced
+// ---------------------------------------------------------------------------
+// We poll the GitHub Releases feed but download *nothing* until the user says
+// so, and we never restart out from under them. Two consent points: "download
+// it?" when a release appears, and "restart now?" once it's on disk. If they
+// decline the restart, the update applies the next time they quit on their own.
+const SIX_HOURS = 6 * 60 * 60 * 1000;
+
+function setupAutoUpdates(win: BrowserWindow): void {
+  autoUpdater.autoDownload = false; // ask first — don't pull bytes silently
+  autoUpdater.autoInstallOnAppQuit = true; // once downloaded, apply on next quit
+
+  // One prompt per session: periodic re-checks shouldn't stack dialogs, and a
+  // user who said "not now" isn't re-nagged until they relaunch.
+  let prompted = false;
+
+  autoUpdater.on("update-available", async (info) => {
+    if (prompted) return;
+    prompted = true;
+    const { response } = await dialog.showMessageBox(win, {
+      type: "info",
+      buttons: ["Update", "Not now"],
+      defaultId: 0,
+      cancelId: 1,
+      title: "Update available",
+      message: `A new version of astral (${info.version}) is available.`,
+      detail: "Download it now? You can keep working — we'll let you know when it's ready to install.",
+    });
+    if (response === 0) void autoUpdater.downloadUpdate();
+  });
+
+  autoUpdater.on("update-downloaded", async (info) => {
+    const { response } = await dialog.showMessageBox(win, {
+      type: "info",
+      buttons: ["Restart now", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+      title: "Update ready",
+      message: `astral ${info.version} is ready to install.`,
+      detail: "Restart now to apply it, or it'll be applied the next time you quit.",
+    });
+    if (response === 0) autoUpdater.quitAndInstall();
+  });
+
+  // Network hiccup, no releases yet, etc. — non-fatal; stay on the current build.
+  autoUpdater.on("error", (err) => console.error("[auto-update]", err));
+
+  void autoUpdater.checkForUpdates();
+  // Re-check periodically so a long-lived window still notices new releases.
+  setInterval(() => void autoUpdater.checkForUpdates(), SIX_HOURS);
+}
+
 app.whenReady().then(() => {
   if (process.platform === "win32") {
     app.setAppUserModelId(APP_USER_MODEL_ID);
   }
 
-  createWindow();
+  const win = createWindow();
 
-  if (!isDev) {
-    // Checks the GitHub Releases feed and notifies on next launch when updated.
-    void autoUpdater.checkForUpdatesAndNotify();
-  }
+  if (!isDev) setupAutoUpdates(win);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

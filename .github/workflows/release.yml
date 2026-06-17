@@ -1,0 +1,43 @@
+name: release
+
+# Push a version tag (e.g. `v0.1.1`) → build the Windows installer and publish
+# it to GitHub Releases. Existing apps poll that feed and prompt to update.
+# You can also run it by hand from the Actions tab (workflow_dispatch).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# One release build per ref; a newer push cancels an in-flight run.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the Release and upload assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      # `--publish always` creates/updates the GitHub Release and uploads the
+      # installer, blockmap, and latest.yml. GITHUB_TOKEN has contents:write.
+      - run: pnpm exec electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

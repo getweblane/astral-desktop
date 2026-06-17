@@ -36,3 +36,7 @@ publish:
   provider: github
   owner: getweblane
   repo: astral-desktop
+  # Publish as a real release, not a draft — so a pushed tag lands on the
+  # Releases page (and reaches users) without a manual "publish" click.
+  # latest.yml is uploaded last, so clients never see a half-uploaded release.
+  releaseType: release
