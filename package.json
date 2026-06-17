@@ -1,6 +1,6 @@
 {
   "name": "astral-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "electron shell for the astral workspace dialer",
   "author": "Weblane",
   "license": "UNLICENSED",
@@ -21,7 +21,11 @@
     "electron-updater": "^6.6.2"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "esbuild", "sharp"]
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "sharp"
+    ]
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
