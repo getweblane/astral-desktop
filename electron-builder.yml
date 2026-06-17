@@ -1,0 +1,38 @@
+appId: com.astral.desktop
+productName: astral
+copyright: Copyright © Weblane
+
+directories:
+  output: dist
+  buildResources: build
+
+# Only the compiled main/preload output ships; the renderer is remote.
+files:
+  - out/**
+
+win:
+  target: nsis
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+mac:
+  target: dmg
+  icon: build/icon.icns
+  category: public.app-category.business
+  # macOS auto-update requires signing + notarization — supply an Apple
+  # Developer cert before shipping mac releases (see PLAN.md open questions).
+
+linux:
+  target: AppImage
+  icon: build/icon.png
+  category: Office
+
+publish:
+  provider: github
+  owner: getweblane
+  repo: astral-desktop

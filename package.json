@@ -1,0 +1,35 @@
+{
+  "name": "astral-desktop",
+  "version": "0.1.0",
+  "description": "electron shell for the astral workspace dialer",
+  "author": "Weblane",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "icons": "node scripts/gen-icons.mjs",
+    "dist": "electron-vite build && electron-builder",
+    "dist:win": "electron-vite build && electron-builder --win",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:linux": "electron-vite build && electron-builder --linux"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "esbuild", "sharp"]
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.1.0",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.34.4",
+    "typescript": "^5.7.3"
+  }
+}

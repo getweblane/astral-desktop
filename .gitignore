@@ -1,0 +1,9 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+
+# Generated icon raster (regenerate with `pnpm icons`); keep source SVG + final
+# platform icons committed so packaging works on a clean clone.
+build/icon-*.png
