@@ -1,14 +1,15 @@
-import { app, BrowserWindow, dialog, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session } from "electron";
 import { join } from "path";
 import { autoUpdater } from "electron-updater";
+import { TabManager } from "./tabs";
 
 // ---------------------------------------------------------------------------
 // Target URL
 // ---------------------------------------------------------------------------
-// `astral.wbl.is` is the deployed NEXT_PUBLIC_APP_URL. In a packaged build we
+// `astral.ing` is the deployed NEXT_PUBLIC_APP_URL. In a packaged build we
 // always point at prod; running unpackaged (`pnpm dev` / `pnpm start`) points
 // at the local Next.js dev server. `ASTRAL_URL` overrides either for testing.
-const PROD_URL = "https://astral.wbl.is";
+const PROD_URL = "https://astral.ing";
 const DEV_URL = "http://localhost:3000";
 
 const isDev = !app.isPackaged && process.env.ASTRAL_PROD !== "1";
@@ -17,37 +18,42 @@ const APP_ORIGIN = new URL(BASE_URL).origin;
 
 // Boot onto `/login`, not the marketing landing page: that route signs the user
 // in, or redirects straight into the app when the `wl_session` cookie is still
-// valid. (Origin is unchanged, so in-window navigation rules below still hold.)
+// valid. (Origin is unchanged, so in-window navigation rules still hold.)
 const APP_URL = new URL("/login", BASE_URL).toString();
 
 // Persistent partition → Chromium stores the httpOnly `wl_session` cookie on
 // disk, so login survives restarts for the cookie's 30-day rolling lifetime.
+// Every tab shares this partition, so a login in one tab logs in all of them.
 const PARTITION = "persist:astral";
 
 // Windows: needed for notifications/taskbar to attribute to the right app.
 const APP_USER_MODEL_ID = "com.astral.desktop";
+
+// Height (DIPs) of the custom chrome: 40px tab strip + 40px nav toolbar. Must
+// stay in sync with the total height of #titlebar + #toolbar in chrome.css —
+// the tab WebContentsViews are positioned exactly below it.
+const CHROME_HEIGHT = 80;
+
+// The chrome renderer's dev URL (electron-vite HMR server); unset in prod.
+const RENDERER_URL = process.env.ELECTRON_RENDERER_URL;
+
+const isMac = process.platform === "darwin";
+
+// Maps a chrome host webContents id → its TabManager, so global IPC handlers
+// can route a command to the window it came from (macOS can have several).
+const managers = new Map<number, TabManager>();
 
 // Single instance — also the foundation for `astral://` deep links later.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 }
 
-/** Open a URL in the system browser, swallowing parse errors. */
-function openExternal(url: string): void {
-  try {
-    void shell.openExternal(url);
-  } catch {
-    /* ignore malformed URLs */
-  }
+function managerFor(event: Electron.IpcMainEvent): TabManager | undefined {
+  return managers.get(event.sender.id);
 }
 
-/** True if `url` belongs to the Astral app origin (keep it in-window). */
-function isInternal(url: string): boolean {
-  try {
-    return new URL(url).origin === APP_ORIGIN;
-  } catch {
-    return false;
-  }
+function windowFor(event: Electron.IpcMainEvent): BrowserWindow | null {
+  return BrowserWindow.fromWebContents(event.sender);
 }
 
 function createWindow(): BrowserWindow {
@@ -55,6 +61,7 @@ function createWindow(): BrowserWindow {
 
   // The dialer uses sip.js/WebRTC and needs the microphone; also allow native
   // notifications and sanitized clipboard writes. Everything else is denied.
+  // Set on the shared partition, so it covers every tab's webContents.
   const ALLOWED = new Set([
     "media",
     "notifications",
@@ -72,35 +79,73 @@ function createWindow(): BrowserWindow {
     minHeight: 600,
     backgroundColor: "#181818", // theme color → no white flash on boot
     show: false,
-    autoHideMenuBar: true,
+    // Frameless everywhere so the tab strip reaches the top edge. On macOS we
+    // keep the native traffic lights (hidden titlebar); on Windows/Linux the
+    // chrome renderer draws its own min/max/close buttons.
+    frame: false,
+    titleBarStyle: isMac ? "hidden" : "default",
+    trafficLightPosition: isMac ? { x: 12, y: 24 } : undefined,
     webPreferences: {
-      partition: PARTITION,
-      preload: join(__dirname, "../preload/index.js"),
+      // The host window renders the *local* chrome, so it gets the chrome
+      // preload and the default session (not the astral partition).
+      preload: join(__dirname, "../preload/chrome.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      spellcheck: true,
     },
   });
 
   win.once("ready-to-show", () => win.show());
-  void win.loadURL(APP_URL);
 
-  // Keep app navigation in-window; send everything else (magic links, OAuth
-  // provider pages, external dashboards) to the system browser.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isInternal(url)) return { action: "allow" };
-    openExternal(url);
-    return { action: "deny" };
+  // Load the local chrome UI (tab strip + nav + window controls).
+  if (RENDERER_URL) void win.loadURL(RENDERER_URL);
+  else void win.loadFile(join(__dirname, "../renderer/index.html"));
+
+  const tabs = new TabManager({
+    win,
+    partition: PARTITION,
+    preload: join(__dirname, "../preload/index.js"),
+    chromeHeight: CHROME_HEIGHT,
+    startUrl: APP_URL,
+    appOrigin: APP_ORIGIN,
   });
-  win.webContents.on("will-navigate", (event, url) => {
-    if (!isInternal(url)) {
-      event.preventDefault();
-      openExternal(url);
-    }
+  // Capture the id now: on "closed" the webContents is already destroyed, so
+  // `win.webContents.id` would throw.
+  const chromeId = win.webContents.id;
+  managers.set(chromeId, tabs);
+
+  win.on("closed", () => {
+    managers.delete(chromeId);
+    tabs.destroyAll();
   });
 
   return win;
+}
+
+// ---------------------------------------------------------------------------
+// IPC — chrome renderer → main
+// ---------------------------------------------------------------------------
+function registerIpc(): void {
+  ipcMain.on("chrome:ready", (e) => managerFor(e)?.onChromeReady());
+  ipcMain.on("tab:new", (e) => managerFor(e)?.newTab());
+  ipcMain.on("tab:select", (e, id: unknown) => {
+    if (typeof id === "number") managerFor(e)?.select(id);
+  });
+  ipcMain.on("tab:close", (e, id: unknown) => {
+    if (typeof id === "number") managerFor(e)?.close(id);
+  });
+  ipcMain.on("nav:back", (e) => managerFor(e)?.back());
+  ipcMain.on("nav:forward", (e) => managerFor(e)?.forward());
+  ipcMain.on("nav:reload", (e) => managerFor(e)?.reload());
+
+  ipcMain.on("win:minimize", (e) => windowFor(e)?.minimize());
+  ipcMain.on("win:maximize", (e) => {
+    const win = windowFor(e);
+    if (!win) return;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
+  ipcMain.on("win:close", (e) => windowFor(e)?.close());
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +206,7 @@ app.whenReady().then(() => {
     app.setAppUserModelId(APP_USER_MODEL_ID);
   }
 
+  registerIpc();
   const win = createWindow();
 
   if (!isDev) setupAutoUpdates(win);

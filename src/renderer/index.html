@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: http://localhost:*;"
+    />
+    <title>astral</title>
+    <link rel="stylesheet" href="./chrome.css" />
+  </head>
+  <body>
+    <div id="titlebar">
+      <div class="logo" aria-hidden="true">&#10022;</div>
+      <div id="tabs" class="tabs"></div>
+      <button id="newtab" class="newtab" title="New tab" aria-label="New tab">+</button>
+      <div class="spacer"></div>
+      <div id="wincontrols" class="wincontrols">
+        <button id="min" class="win-btn" aria-label="Minimize">&#8211;</button>
+        <button id="max" class="win-btn" aria-label="Maximize">&#9634;</button>
+        <button id="close" class="win-btn close" aria-label="Close">&#10005;</button>
+      </div>
+    </div>
+    <div id="toolbar">
+      <button id="back" class="nav-btn" title="Back" aria-label="Back">&#8249;</button>
+      <button id="forward" class="nav-btn" title="Forward" aria-label="Forward">&#8250;</button>
+      <button id="reload" class="nav-btn reload" title="Reload" aria-label="Reload">&#10227;</button>
+    </div>
+    <script type="module" src="./chrome.ts"></script>
+  </body>
+</html>

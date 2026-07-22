@@ -1,0 +1,201 @@
+:root {
+  --bg: #181818;
+  --bg-tab: #202020;
+  --bg-content: #2a2a2a;
+  --fg: #e8e8e8;
+  --fg-dim: #9a9a9a;
+  --danger: #e5484d;
+  --border: #303030;
+  --hover: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* ── Row 1: tab strip + window controls ──────────────────────────────── */
+#titlebar {
+  height: 40px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 0 0 0 8px;
+  background: var(--bg);
+  -webkit-app-region: drag;
+}
+
+.logo {
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 6px 8px;
+  opacity: 0.9;
+  flex: none;
+}
+
+.tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 0 1 auto;
+  height: 100%;
+  padding-top: 6px;
+  overflow-x: auto;
+  -webkit-app-region: no-drag;
+}
+.tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 132px;
+  max-width: 220px;
+  padding: 0 6px 0 12px;
+  background: var(--bg-tab);
+  border-radius: 8px 8px 0 0;
+  color: var(--fg-dim);
+  cursor: default;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+.tab.active {
+  background: var(--bg-content);
+  color: var(--fg);
+}
+.tab .title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab .close {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+  display: grid;
+  place-items: center;
+}
+.tab .close:hover {
+  background: var(--hover);
+  opacity: 1;
+}
+
+.newtab {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.newtab:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.spacer {
+  flex: 1;
+  align-self: stretch;
+  min-width: 20px;
+  -webkit-app-region: drag;
+}
+
+.wincontrols {
+  display: flex;
+  align-self: stretch;
+  -webkit-app-region: no-drag;
+}
+.win-btn {
+  width: 46px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.win-btn:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.win-btn.close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ── Row 2: back / forward / reload ──────────────────────────────────── */
+#toolbar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px;
+  background: var(--bg-content);
+  border-bottom: 1px solid var(--border);
+}
+.nav-btn {
+  width: 34px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.nav-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+.nav-btn:disabled {
+  color: #555;
+  cursor: default;
+}
+.nav-btn.reload {
+  font-size: 15px;
+}
+
+/* macOS: native traffic lights sit top-left, so hide our window controls and
+   reserve space for them. */
+html.mac #titlebar {
+  padding-left: 78px;
+}
+html.mac .wincontrols {
+  display: none;
+}
